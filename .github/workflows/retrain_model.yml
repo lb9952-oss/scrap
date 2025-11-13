@@ -46,5 +46,5 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: 'feat: Retrain model and update model artifacts'
-          # .pkl 파일들만 이 워크플로우의 커밋 대상으로 지정합니다.
-          file_pattern: 'scrap/*.pkl'
+          # .pkl 파일들과 함께 historical_scraps.csv 파일도 커밋 대상으로 지정합니다.
+          file_pattern: 'scrap/*.pkl scrap/historical_scraps.csv'
