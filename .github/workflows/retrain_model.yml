@@ -1,0 +1,50 @@
+# .github/workflows/retrain_model.yml
+
+name: Retrain Model
+
+on:
+  # 'scrap/labeled_for_training.csv' 파일에 변경사항이 푸시(업로드)되었을 때 워크플로우를 실행합니다.
+  push:
+    paths:
+      - 'scrap/labeled_for_training.csv'
+  
+  # GitHub Actions 탭에서 수동으로 이 워크플로우를 실행할 수 있도록 합니다.
+  workflow_dispatch:
+
+jobs:
+  retrain-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 저장소의 코드를 가상 머신으로 가져옵니다.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Konlpy에 필요한 Java(JDK) 환경을 설정합니다.
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      # 3. 파이썬 환경을 설정합니다.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # 4. requirements.txt에 명시된 파이썬 라이브러리를 설치합니다.
+      - name: Install Python dependencies
+        run: pip install -r scrap/requirements.txt
+
+      # 5. 모델 재학습 스크립트를 실행합니다.
+      - name: Run Model Retraining Script
+        run: python scrap/run_daily_retraining.py
+
+      # 6. 변경된 모델 파일(.pkl)들을 자동으로 커밋합니다.
+      - name: Commit new model files
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: 'feat: Retrain model and update model artifacts'
+          # .pkl 파일들만 이 워크플로우의 커밋 대상으로 지정합니다.
+          file_pattern: 'scrap/*.pkl'
