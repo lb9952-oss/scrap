@@ -3,7 +3,7 @@
 name: Daily News Update
 
 on:
-  # 매일 00:00 UTC (한국 시간 오전 6시)에 워크플로우를 실행합니다.
+  # 매일 00:00 UTC (한국 시간 오전 9시)에 워크플로우를 실행합니다.
   schedule:
     - cron: '0 21 * * *'
   
