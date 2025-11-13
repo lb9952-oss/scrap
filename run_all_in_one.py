@@ -26,29 +26,24 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
 # Konlpy를 위한 Java 경로 설정 (GitHub Actions 환경에서는 동적으로 설정됨)
 if 'JAVA_HOME' not in os.environ:
-    # 로컬 Windows 환경의 예시 경로. 실제 환경에 맞게 수정 필요.
-    # os.environ['JAVA_HOME'] = 'C:\Program Files\Java\jdk-17'
     pass
 
-# 파일 경로 정의
+# 파일 경로 정의 (상대 경로 사용)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-NEWSPAPERS_CSV = os.path.join(BASE_DIR, 'newspapers.csv')
-CRAWLED_ARTICLES_CSV = os.path.join(BASE_DIR, 'crawled_articles.csv')
-SCRAPPED_NEWS_TODAY_CSV = os.path.join(BASE_DIR, 'scrapped_news_today.csv')
-MODEL_PATH = os.path.join(BASE_DIR, 'scrap_model.pkl')
-VECTORIZER_PATH = os.path.join(BASE_DIR, 'tfidf_vectorizer.pkl')
-JSON_OUTPUT_FILE = os.path.join(BASE_DIR, 'news_data.json')
-HTML_TEMPLATE_FILE = os.path.join(BASE_DIR, 'templates', 'index.html')
-HTML_OUTPUT_FILE = os.path.join(BASE_DIR, 'github_pages_index.html')
-JS_TEMPLATE_FILE = os.path.join(BASE_DIR, 'static', 'js', 'main.js')
-JS_OUTPUT_FILE = os.path.join(BASE_DIR, 'static', 'js', 'github_pages_main.js')
+NEWSPAPERS_CSV = 'newspapers.csv'
+CRAWLED_ARTICLES_CSV = 'crawled_articles.csv'
+SCRAPPED_NEWS_TODAY_CSV = 'scrapped_news_today.csv'
+MODEL_PATH = 'scrap_model.pkl'
+VECTORIZER_PATH = 'tfidf_vectorizer.pkl'
+JSON_OUTPUT_FILE = 'news_data.json'
+HTML_TEMPLATE_FILE = os.path.join('templates', 'index.html')
+HTML_OUTPUT_FILE = 'github_pages_index.html'
+JS_TEMPLATE_FILE = os.path.join('static', 'js', 'main.js')
+JS_OUTPUT_FILE = os.path.join('static', 'js', 'github_pages_main.js')
 
 
 # --- 1단계: 뉴스 크롤링 ---
 def run_crawling(input_csv_path=NEWSPAPERS_CSV, output_csv_path=CRAWLED_ARTICLES_CSV):
-    """
-    newspapers.csv에 명시된 URL의 뉴스 기사를 크롤링하여 crawled_articles.csv로 저장합니다.
-    """
     print("--- 1단계: 뉴스 크롤링 시작 ---")
     try:
         df = pd.read_csv(input_csv_path, encoding='utf-8')
@@ -101,14 +96,11 @@ def run_crawling(input_csv_path=NEWSPAPERS_CSV, output_csv_path=CRAWLED_ARTICLES
         print("  크롤링된 데이터가 없습니다.")
         return False
     
-    print("--- 1단계: 뉴스 크롤링 완료 ---\\n")
+    print("--- 1단계: 뉴스 크롤링 완료 ---\n")
     return True
 
 # --- 2단계: 스크랩 가치 예측 ---
 def run_daily_scraping(input_file=CRAWLED_ARTICLES_CSV, model_path=MODEL_PATH, vectorizer_path=VECTORIZER_PATH, output_file=SCRAPPED_NEWS_TODAY_CSV):
-    """
-    크롤링된 기사에 대해 기계 학습 모델을 적용하여 스크랩 가치를 예측합니다.
-    """
     print("--- 2단계: 스크랩 가치 예측 시작 ---")
     try:
         with open(model_path, "rb") as f: model = pickle.load(f)
@@ -156,30 +148,26 @@ def run_daily_scraping(input_file=CRAWLED_ARTICLES_CSV, model_path=MODEL_PATH, v
     output_df.insert(2, '본문_요약', sorted_articles['크롤링된_본문'].str[:300] + "...")
     output_df.to_csv(output_file, index=False, encoding='utf-8-sig')
     
-    print("--- 2단계: 스크랩 가치 예측 완료 ---\\n")
+    print("--- 2단계: 스크랩 가치 예측 완료 ---\n")
     return True
 
 # --- 3단계: 정적 파일 생성 ---
 def generate_static_files():
-    """
-    예측 완료된 CSV 파일을 기반으로 GitHub Pages용 정적 파일들을 생성합니다.
-    """
     print("--- 3단계: GitHub Pages용 정적 파일 생성 시작 ---")
     
-    # JSON 생성
     print("  [1/3] JSON 파일 생성 중...")
     if not os.path.exists(SCRAPPED_NEWS_TODAY_CSV) or os.path.getsize(SCRAPPED_NEWS_TODAY_CSV) == 0:
         print(f"  오류: '{SCRAPPED_NEWS_TODAY_CSV}' 파일이 비어있거나 존재하지 않습니다.")
         return False
     try:
         df = pd.read_csv(SCRAPPED_NEWS_TODAY_CSV, encoding='utf-8-sig')
+        # to_json 메소드는 NaN을 null로 올바르게 변환합니다.
         df.to_json(JSON_OUTPUT_FILE, orient='records', force_ascii=False, indent=4)
         print(f"    '{JSON_OUTPUT_FILE}' 생성 완료.")
     except Exception as e:
         print(f"  오류: JSON 변환 실패 - {e}")
         return False
 
-    # HTML 생성
     print("  [2/3] HTML 파일 생성 중...")
     try:
         with open(HTML_TEMPLATE_FILE, 'r', encoding='utf-8') as f: html_content = f.read()
@@ -190,7 +178,6 @@ def generate_static_files():
         print(f"  오류: HTML 파일 생성 실패 - {e}")
         return False
 
-    # JavaScript 생성
     print("  [3/3] JavaScript 파일 생성 중...")
     try:
         with open(JS_TEMPLATE_FILE, 'r', encoding='utf-8') as f: js_content = f.read()
@@ -202,7 +189,7 @@ def generate_static_files():
         print(f"  오류: JavaScript 파일 생성 실패 - {e}")
         return False
         
-    print("--- 3단계: 정적 파일 생성 완료 ---\\n")
+    print("--- 3단계: 정적 파일 생성 완료 ---\n")
     return True
 
 # --- 메인 실행 블록 ---
