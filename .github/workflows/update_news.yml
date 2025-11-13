@@ -3,7 +3,7 @@
 name: Daily News Update
 
 on:
-  # 매일 00:00 UTC (한국 시간 오전 9시)에 워크플로우를 실행합니다.
+  # 매일 00:00 UTC (한국 시간 오전 6시)에 워크플로우를 실행합니다.
   schedule:
     - cron: '0 21 * * *'
   
@@ -36,17 +36,9 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r scrap/requirements.txt
 
-      # 5. 뉴스 크롤링 스크립트를 실행합니다.
-      - name: Run Crawling Script
-        run: python scrap/crawl_script.py
-
-      # 6. 스크랩 및 점수 예측 스크립트를 실행합니다.
-      - name: Run Scraping Script
-        run: python scrap/run_daily_scraping.py
-
-      # 7. GitHub Pages용 정적 파일(news_data.json 등)을 생성합니다.
-      - name: Generate Static Files for GitHub Pages
-        run: python scrap/generate_static_files.py
+      # 5. 통합 스크립트를 실행하여 크롤링, 예측, 정적 파일 생성을 한번에 처리합니다.
+      - name: Run All-in-One Process
+        run: python scrap/run_all_in_one.py
 
       # 8. 변경된 파일(news_data.json)을 자동으로 커밋합니다.
       - name: Commit and push if it changed
