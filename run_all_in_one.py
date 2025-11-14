@@ -28,13 +28,14 @@ os.environ['HF_HUB_DISABLE_CERTIFICATE_VERIFICATION'] = '1'
 
 # 파일 경로 정의 (상대 경로 사용)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SCRAPPED_NEWS_TODAY_CSV = os.path.join(BASE_DIR, 'scrapped_news_today.csv')
-MODEL_PATH = os.path.join(BASE_DIR, 'scrap_model.pkl')
-VECTORIZER_PATH = os.path.join(BASE_DIR, 'tfidf_vectorizer.pkl')
+SCRAP_DIR = os.path.join(BASE_DIR, 'scrap')
+SCRAPPED_NEWS_TODAY_CSV = os.path.join(SCRAP_DIR, 'scrapped_news_today.csv')
+MODEL_PATH = os.path.join(SCRAP_DIR, 'scrap_model.pkl')
+VECTORIZER_PATH = os.path.join(SCRAP_DIR, 'tfidf_vectorizer.pkl')
 JSON_OUTPUT_FILE = os.path.join(BASE_DIR, 'news_data.json')
-HTML_TEMPLATE_FILE = os.path.join(BASE_DIR, 'templates', 'index.html') # 파일명 수정
+HTML_TEMPLATE_FILE = os.path.join(SCRAP_DIR, 'templates', 'index.html')
 HTML_OUTPUT_FILE = os.path.join(BASE_DIR, 'index.html')
-JS_TEMPLATE_FILE = os.path.join(BASE_DIR, 'static', 'js', 'main.js')
+JS_TEMPLATE_FILE = os.path.join(SCRAP_DIR, 'static', 'js', 'main.js')
 JS_OUTPUT_FILE = os.path.join(BASE_DIR, 'static', 'js', 'github_pages_main.js')
 
 # --- 공통 전처리 함수 및 객체 ---
