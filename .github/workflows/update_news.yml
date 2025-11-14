@@ -22,9 +22,10 @@ jobs:
           python-version: '3.9'
       - name: Install Python dependencies
         run: pip install -r requirements.txt
-      - name: Run Python Script
+      - name: Create and Run Python Script
         run: |
-          python -c """
+          cat <<'EOF' > run_script.py
+          # -*- coding: utf-8 -*-
           import pandas as pd
           import numpy as np
           import re
@@ -222,8 +223,8 @@ jobs:
                       print('!!!!! 2단계(스크랩 예측)에서 오류가 발생하여 중단되었습니다. !!!!!')
               else:
                   print('!!!!! 1단계(크롤링 및 전처리)에서 처리할 기사를 찾지 못했습니다. !!!!!')
-          """
-
+          EOF
+          python run_script.py
       - name: Commit and push if it changed
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
