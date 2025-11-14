@@ -1,52 +1,244 @@
-# .github/workflows/update_news.yml
-
-name: Daily News Update
-
-on:
-  # 매일 00:00 UTC (한국 시간 오전 9시)에 워크플로우를 실행합니다.
-  schedule:
-    - cron: '0 21 * * *'
-  
-  # GitHub Actions 탭에서 수동으로 이 워크플로우를 실행할 수 있도록 합니다.
-  workflow_dispatch:
-
-jobs:
-  build-and-commit:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      # 1. 저장소의 코드를 가상 머신으로 가져옵니다.
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # 2. Konlpy에 필요한 Java(JDK) 환경을 설정합니다.
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      # 3. 파이썬 환경을 설정합니다.
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.9'
-
-      # 4. requirements.txt에 명시된 파이썬 라이브러리를 설치합니다.
-      - name: Install Python dependencies
-        run: pip install -r requirements.txt
-
-      # 5. 통합 스크립트를 실행하여 크롤링, 예측, 정적 파일 생성을 한번에 처리합니다.
-      - name: Run All-in-One Process
-        run: python run_all_in_one.py
-
-      # 8. 변경된 파일(news_data.json)을 자동으로 커밋합니다.
-      - name: Commit and push if it changed
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: 'chore: Daily news data updated'
-          # 특정 파일만 커밋 대상으로 지정할 수 있습니다.
-          # 예: file_pattern: scrap/news_data.json
-          # 비워두면 변경된 모든 파일을 커밋합니다.
+ 1 # .github/workflows/update_news.yml      
+     2 
+     3 name: Daily News Update
+     4 
+     5 on:
+     6   schedule:
+     7     - cron: '0 21 * * *'
+     8   workflow_dispatch:
+     9 
+    10 jobs:
+    11   build-and-commit:
+    12     runs-on: ubuntu-latest
+    13     permissions:
+    14       contents: write
+    15 
+    16     steps:
+    17       - name: Checkout repository        
+    18         uses: actions/checkout@v4        
+    19 
+    20       - name: Set up JDK 17
+    21         uses: actions/setup-java@v4      
+    22         with:
+    23           java-version: '17'
+    24           distribution: 'temurin'        
+    25 
+    26       - name: Set up Python
+    27         uses: actions/setup-python@v5    
+    28         with:
+    29           python-version: '3.9'
+    30 
+    31       - name: Install Python dependencies
+    32         run: pip install -r requirements.txt
+    33 
+    34       - name: Run Python Script
+    35         run: |
+    36           python -c """
+    37           # -*- coding: utf-8 -*-
+    38           import pandas as pd
+    39           import numpy as np
+    40           import re
+    41           import pickle
+    42           import os
+    43           import requests
+    44           from bs4 import BeautifulSoup
+    45           from konlpy.tag import Okt
+    46           from sklearn.feature_extraction.text import TfidfVectorizer
+    47           from scipy.sparse import hstack
+    48           import time
+    49           import json
+    50           from tqdm import tqdm
+    51           from sklearn.metrics.pairwise import cosine_similarity
+    52 
+    53           # --- 전역 설정 및 파일 경로 (최상위 경로 기준) ---
+    54           os.environ['CURL_CA_BUNDLE'] = ''
+    55           os.environ['REQUESTS_CA_BUNDLE'] = ''
+    56           os.environ['HF_HUB_DISABLE_CERTIFICATE_VERIFICATION'] = '1'
+    57 
+    58           BASE_DIR = os.getcwd() # 워크플로우의 현재 작업 디렉토리 (저장소 루트)
+    59           SCRAPPED_NEWS_TODAY_CSV = os.path.join(BASE_DIR, 'scrapped_news_today.csv')
+    60           MODEL_PATH = os.path.join(BASE_DIR, 'scrap_model.pkl')
+    61           VECTORIZER_PATH = os.path.join(BASE_DIR, 'tfidf_vectorizer.pkl')
+    62           JSON_OUTPUT_FILE = os.path.join(BASE_DIR, 'news_data.json')
+    63           HTML_TEMPLATE_FILE = os.path.join(BASE_DIR, 'index.html')
+    64           HTML_OUTPUT_FILE = os.path.join(BASE_DIR, 'index.html')
+    65           JS_TEMPLATE_FILE = os.path.join(BASE_DIR, 'static', 'js', 'main.js')
+    66           JS_OUTPUT_FILE = os.path.join(BASE_DIR, 'static', 'js', 'github_pages_main.js')
+    67 
+    68           okt = Okt()
+    69           def preprocess(text):
+    70               return ' '.join(okt.nouns(re.sub(r'[^\ㄱ-ㅎㅏ-ㅣ가-힣 ]','', str(text))))
+    71 
+    72           def get_today_articles():
+    73               print('--- 1.1: 주요 일간지 기사 목록 수집 시작 ---')
+    74               newspapers = {'한국경제': '015', '매일경제': '009', '동아일보': '020', '조선일보': '023', '중앙일보': '025'}
+    75               headers = {'User-Agent': 'Mozilla/5.0'}
+    76               all_articles = []
+    77               for name, oid in newspapers.items():
+    78                   try:
+    79                       url = f"https://media.naver.com/press/{oid}/newspaper"
+    80                       response = requests.get(url, headers=headers, verify=False, timeout=10)
+    81                       response.raise_for_status()
+    82                       soup = BeautifulSoup(response.text, 'html.parser')
+    83                       links = soup.select('div.sc_offc_lst._paper_article_list a')
+    84                       for link in links:
+    85                           title = link.get_text(strip=True)
+    86                           href = link.get('href', '')
+    87                           if title and href:
+    88                               all_articles.append({'신문사': name, '제목': title, '링크': 'https://media.naver.com' + href if href.startswith('/') else href})
+    89                       time.sleep(0.5)
+    90                   except Exception as e:
+    91                       print(f'  ✗ {name} 수집 오류: {e}')
+    92               df = pd.DataFrame(all_articles).drop_duplicates(subset=['링크']).reset_index(drop=True)
+    93               print(f'  - 총 {len(df)}개의 고유 기사 목록 수집 완료.')
+    94               return df
+    95 
+    96           def get_article_content(url):
+    97               try:
+    98                   headers = {'User-Agent': 'Mozilla/5.0'}
+    99                   response = requests.get(url, headers=headers, timeout=10, verify=False)
+   100                   response.raise_for_status()
+   101                   soup = BeautifulSoup(response.text, 'html.parser')
+   102                   content_area = soup.select_one('#dic_area, #articeBody, #article_content')
+   103                   if content_area:
+   104                       for el in content_area.select('script, style, .reporter_area, .ad_area, .promotion_area, div.byline, a, span.end_photo_org'):
+   105                           el.decompose()
+   106                       return content_area.get_text(strip=True)
+   107               except Exception as e:
+   108                   print(f'    - 링크 크롤링 실패: {url}, 오류: {e}')
+   109               return ''
+   110 
+   111           def run_step_one_crawling_and_preprocessing():
+   112               articles_df = get_today_articles()
+   113               if articles_df.empty: return pd.DataFrame()
+   114               print('--- 1.2: 기사 본문 크롤링 및 요약 생성 ---')
+   115               crawled_data = []
+   116               for _, row in tqdm(articles_df.iterrows(), total=len(articles_df), desc='  - 기사 본문 크롤링'):
+   117                   content = get_article_content(row['링크'])
+   118                   if content:
+   119                       crawled_data.append([row['신문사'], row['제목'], row['링크'], content, content[:400] + '...'])
+   120                   time.sleep(0.5)
+   121               if not crawled_data:
+   122                   print('크롤링된 기사가 없습니다.')
+   123                   return pd.DataFrame()
+   124               df = pd.DataFrame(crawled_data, columns=['신문사', '제목', '링크', '본문', '본문_요약'])
+   125               print('--- 1.3: 내용 기반 중복 기사 제거 (유사도 0.6 기준) ---')
+   126               if not df.empty and '본문' in df.columns and not df['본문'].isnull().all():
+   127                   df['processed_text_for_dedup'] = df['본문'].apply(preprocess)
+   128                   vectorizer = TfidfVectorizer(min_df=1, ngram_range=(1, 2))
+   129                   tfidf_matrix = vectorizer.fit_transform(df['processed_text_for_dedup'])
+   130                   cosine_sim = cosine_similarity(tfidf_matrix)
+   131                   df['본문_길이_dedup'] = df['본문'].str.len()
+   132                   df = df.sort_values(by='본문_길이_dedup', ascending=False).reset_index(drop=True)
+   133                   tfidf_matrix_sorted = vectorizer.fit_transform(df['processed_text_for_dedup'])
+   134                   cosine_sim_sorted = cosine_similarity(tfidf_matrix_sorted)
+   135                   to_drop = set()
+   136                   for i in range(len(cosine_sim_sorted)):
+   137                       if i in to_drop: continue
+   138                       for j in range(i + 1, len(cosine_sim_sorted)):
+   139                           if j in to_drop: continue
+   140                           if cosine_sim_sorted[i, j] > 0.6:
+   141                               to_drop.add(j)
+   142                   if to_drop:
+   143                       print(f'   - {len(to_drop)}개의 유사 기사를 제거했습니다.')
+   144                       df.drop(index=list(to_drop), inplace=True)
+   145                   df.drop(columns=['processed_text_for_dedup', '본문_길이_dedup'], inplace=True)
+   146               print(f'   - 최종 분석 대상 기사: {len(df)}개')
+   147               print('--- 1단계: 크롤링 및 전처리 완료 ---')
+   148               print()
+   149               return df
+   150 
+   151           def run_step_two_prediction(df):
+   152               if df.empty:
+   153                   print('2단계 실패: 분석할 데이터가 없습니다.')
+   154                   return False
+   155               print('--- 2.1: 모델 및 Vectorizer 로드 ---')
+   156               try:
+   157                   with open(MODEL_PATH, 'rb') as f: model = pickle.load(f)
+   158                   with open(VECTORIZER_PATH, 'rb') as f: tfidf_vectorizer = pickle.load(f)
+   159               except FileNotFoundError:
+   160                   print(f'오류: 모델 파일({MODEL_PATH}) 또는 Vectorizer 파일({VECTORIZER_PATH})을 찾을 수 없습니다.')
+   161                   return False
+   162               print('--- 2.2: 텍스트 전처리 및 특성 추출 ---')
+   163               keywords = {'업계': ['식품', '화학', '바이오', '패키징', '플라스틱', '항암제', '배터리', '친환경', 'D램', '삼양', '초순수', '제약사', '숙취', '상쾌환', '설탕', '칼로리', '삼양그룹', '삼양사', '삼양패키징', '삼양엔씨켐', '삼양바이오팜'], '경영': ['경영', '경제',
+       '환율', 'M&A', '인수', '투자', '실적', '한일경제협회', '조직문화', '무역']}
+   164               df['processed_title'] = df['제목'].apply(preprocess)
+   165               df['processed_text'] = df.apply(lambda r: preprocess(r['제목'] + ' ' + r['본문']), axis=1)
+   166               df['업계_키워드_개수'] = df['processed_text'].apply(lambda x: sum(k in x for k in keywords['업계']))
+   167               df['경영_키워드_개수'] = df['processed_text'].apply(lambda x: sum(k in x for k in keywords['경영']))
+   168               df['업계_키워드_제목_개수'] = df['processed_title'].apply(lambda x: sum(k in x for k in keywords['업계']))
+   169               df['경영_키워드_제목_개수'] = df['processed_title'].apply(lambda x: sum(k in x for k in keywords['경영']))
+   170               df['본문_길이'] = df['본문'].str.len().replace(0, 1)
+   171               df['업계_키워드_밀도'] = df['업계_키워드_개수'] / df['본문_길이']
+   172               df['경영_키워드_밀도'] = df['경영_키워드_개수'] / df['본문_길이']
+   173               text_features = tfidf_vectorizer.transform(df['processed_text'])
+   174               metadata_features = df[['업계_키워드_개수', '경영_키워드_개수', '업계_키워드_제목_개수', '경영_키워드_제목_개수', '본문_길이', '업계_키워드_밀도', '경영_키워드_밀도']].values
+   175               X_new = hstack([text_features, metadata_features * 0.5]).tocsr()
+   176               print('--- 2.3: 스크랩 가치 점수 예측 및 결과 저장 ---')
+   177               df['예측점수'] = model.predict_proba(X_new)[:, 1]
+   178               df['카테고리'] = '기타'
+   179               df.loc[df['업계_키워드_개수'] > 0, '카테고리'] = '업계'
+   180               df.loc[(df['업계_키워드_개수'] == 0) & (df['경영_키워드_개수'] > 0), '카테고리'] = '경영'
+   181               df['최종선택여부'] = ''
+   182               sorted_df = df.sort_values(by='예측점수', ascending=False)
+   183               output_columns = ['신문사', '제목', '본문_요약', '링크', '카테고리', '예측점수', '최종선택여부']
+   184               final_df = sorted_df[output_columns]
+   185               final_df.to_csv(SCRAPPED_NEWS_TODAY_CSV, index=False, encoding='utf-8-sig')
+   186               print(f'  - 최종 결과가 \\'{SCRAPPED_NEWS_TODAY_CSV}\\' 파일로 저장되었습니다.')
+   187               print('--- 2단계: 스크랩 가치 예측 완료 ---')
+   188               print()
+   189               return True
+   190 
+   191           def generate_static_files():
+   192               print('--- 3단계: GitHub Pages용 정적 파일 생성 시작 ---')
+   193               if not os.path.exists(SCRAPPED_NEWS_TODAY_CSV) or os.path.getsize(SCRAPPED_NEWS_TODAY_CSV) == 0:
+   194                   print(f'  오류: \\'{SCRAPPED_NEWS_TODAY_CSV}\\' 파일이 비어있거나 존재하지 않습니다.')
+   195                   return False
+   196               try:
+   197                   print('  [1/3] JSON 파일 생성 중...')
+   198                   df = pd.read_csv(SCRAPPED_NEWS_TODAY_CSV, encoding='utf-8-sig')
+   199                   df.to_json(JSON_OUTPUT_FILE, orient='records', force_ascii=False, indent=4)
+   200                   print(f'    \\'{JSON_OUTPUT_FILE}\\' 생성 완료.')
+   201               except Exception as e:
+   202                   print(f'  오류: JSON 변환 실패 - {e}')
+   203                   return False
+   204               print('  [2/3] HTML 파일 처리 건너뜀 (index.html이 이미 올바른 스크립트를 참조).')
+   205               try:
+   206                   print('  [3/3] JavaScript 파일 생성 중...')
+   207                   os.makedirs(os.path.dirname(JS_OUTPUT_FILE), exist_ok=True)
+   208                   with open(JS_TEMPLATE_FILE, 'r', encoding='utf-8') as f: js_content = f.read()
+   209                   modified_js = js_content.replace("fetch('/api/news')", "fetch('news_data.json')")
+   210                   modified_js = modified_js.replace("setInterval(fetchNews, 30000);", '/* 자동 새로고침 비활성화 */')
+   211                   with open(JS_OUTPUT_FILE, 'w', encoding='utf-8') as f: f.write(modified_js)
+   212                   print(f'    \\'{JS_OUTPUT_FILE}\\' 생성 완료.')
+   213               except FileNotFoundError:
+   214                   print(f'  오류: JS 템플릿 파일 \\'{JS_TEMPLATE_FILE}\\'을 찾을 수 없습니다.')
+   215                   return False
+   216               except Exception as e:
+   217                   print(f'  오류: JavaScript 파일 생성 실패 - {e}')
+   218                   return False
+   219               print('--- 3단계: 정적 파일 생성 완료 ---')
+   220               print()
+   221               return True
+   222 
+   223           # --- 메인 실행 블록 ---
+   224           if __name__ == '__main__':
+   225               processed_articles_df = run_step_one_crawling_and_preprocessing()
+   226               if not processed_articles_df.empty:
+   227                   prediction_success = run_step_two_prediction(processed_articles_df)
+   228                   if prediction_success:
+   229                       if generate_static_files():
+   230                           print('🎉 모든 작업이 성공적으로 완료되었습니다.')
+   231                       else:
+   232                           print('!!!!! 3단계(정적 파일 생성)에서 오류가 발생했습니다. !!!!!')
+   233                   else:
+   234                       print('!!!!! 2단계(스크랩 예측)에서 오류가 발생하여 중단되었습니다. !!!!!')
+   235               else:
+   236                   print('!!!!! 1단계(크롤링 및 전처리)에서 처리할 기사를 찾지 못했습니다. !!!!!')
+   237           """
+   238 
+   239       - name: Commit and push if it changed
+   240         uses: stefanzweifel/git-auto-commit-action@v5
+   241         with:
+   242           commit_message: 'chore: Daily news data updated'
+   243           file_pattern: 'news_data.json index.html static/js/github_pages_main.js scrapped_news_today.csv'
