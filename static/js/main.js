@@ -63,8 +63,8 @@ function renderScrapList() {
         return;
     }
     const scrapHTML = scraps.map(scrap => {
-        const displayUrl = scrap.url || '#';
-        const displayTitle = scrap.title || '제목 없음';
+        const displayUrl = scrap.링크 || '#';
+        const displayTitle = scrap.제목 || '제목 없음';
         return `<div class="list-group-item list-group-item-action">
             <a href="${displayUrl}" target="_blank" class="text-decoration-none">${displayTitle}</a>
          </div>`;
