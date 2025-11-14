@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchNews();
     renderScrapList();
     // 30초마다 자동으로 뉴스 업데이트
-    
+    /* 자동 새로고침 비활성화 */
 });
 
 /**
@@ -63,8 +63,8 @@ function renderScrapList() {
         return;
     }
     const scrapHTML = scraps.map(scrap => {
-        const displayUrl = scrap.url || '#';
-        const displayTitle = scrap.title || '제목 없음';
+        const displayUrl = scrap.링크 || '#';
+        const displayTitle = scrap.제목 || '제목 없음';
         return `<div class="list-group-item list-group-item-action">
             <a href="${displayUrl}" target="_blank" class="text-decoration-none">${displayTitle}</a>
          </div>`;
@@ -82,9 +82,9 @@ function createArticleCard(item, index) {
     const uniqueIdForLogic = index;
     const isScrapped = scraps.some(scrap => scrap.uniqueIdForLogic === uniqueIdForLogic);
     
-    const displayUrl = item.url || '#';
-    const displayTitle = item.title || '제목 없음';
-    const displaySummary = item.summary || '요약 정보가 없습니다.';
+    const displayUrl = item.링크 || '#';
+    const displayTitle = item.제목 || '제목 없음';
+    const displaySummary = item.본문_요약 || '요약 정보가 없습니다.';
 
     return `
         <div class="card">
@@ -92,7 +92,7 @@ function createArticleCard(item, index) {
                 <h5 class="card-title">
                     <a href="${displayUrl}" target="_blank">${displayTitle}</a>
                 </h5>
-                <h6 class="card-subtitle mb-2 text-muted">${item.press || '언론사 정보 없음'}</h6>
+                <h6 class="card-subtitle mb-2 text-muted">${item.신문사 || '언론사 정보 없음'}</h6>
                 <p class="card-text">${displaySummary}</p>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" value="" 
