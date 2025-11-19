@@ -33,6 +33,19 @@ async function fetchNews() {
             return;
         }
         const newsItems = await response.json();
+
+        // --- 스크랩 초기화 로직 ---
+        if (newsItems.length > 0) {
+            const lastNewsId = localStorage.getItem('lastNewsId');
+            const currentNewsId = newsItems[0].링크; // 첫 번째 기사 링크를 식별자로 사용
+
+            if (lastNewsId !== currentNewsId) {
+                console.log('새로운 뉴스 목록이 감지되었습니다. 스크랩 목록을 초기화합니다.');
+                localStorage.removeItem('scrappedNews'); // 스크랩 목록 초기화
+                localStorage.setItem('lastNewsId', currentNewsId); // 새 뉴스 식별자 저장
+                renderScrapList(); // 화면의 스크랩 목록도 즉시 갱신
+            }
+        }
         
         // 1. HTML 렌더링
         newsListContainer.innerHTML = newsItems.map((item, index) => createArticleCard(item, index)).join('');
