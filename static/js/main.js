@@ -1,5 +1,22 @@
 // C:\Users\syc217052\Documents\ai_inov\scrap\static\js\main.js
 
+// 1. 전역 함수로 선언하여 HTML 버튼에서 무조건 찾을 수 있게 함 (가장 중요)
+window.toggleSummary = function(index) {
+    const contentId = `summary-content-${index}`;
+    const element = document.getElementById(contentId);
+    
+    // 요소가 없으면 종료
+    if (!element) return;
+
+    // Bootstrap의 'show' 클래스를 직접 토글 (CSS로 제어)
+    // .collapse는 기본적으로 숨김, .collapse.show는 보임 상태입니다.
+    if (element.classList.contains('show')) {
+        element.classList.remove('show');
+    } else {
+        element.classList.add('show');
+    }
+};
+
 // DOM 요소 가져오기
 const newsListContainer = document.getElementById('news-list');
 const scrapListContainer = document.getElementById('scrap-list');
@@ -93,10 +110,9 @@ function createArticleCard(item, index) {
     const displayTitle = item.제목 || '제목 없음';
     const displaySummary = item.본문_요약 || '요약 정보가 없습니다.';
     
-    // 고유 ID 생성
-    const collapseId = `collapseSummary-${index}`;
+    // 단순한 ID 생성
+    const contentId = `summary-content-${index}`;
 
-    // [수정] onclick 이벤트를 사용하여 직접 함수를 호출하도록 변경
     return `
         <div class="card mb-3">
             <div class="card-body">
@@ -107,18 +123,18 @@ function createArticleCard(item, index) {
                 
                 <div class="mb-2">
                     <button class="btn btn-sm btn-outline-secondary" type="button" 
-                            onclick="toggleSummary('${collapseId}')">
+                            onclick="window.toggleSummary(${index})">
                         📄 본문 요약 보기
                     </button>
                 </div>
 
-                <div class="collapse mb-3" id="${collapseId}">
+                <div class="collapse" id="${contentId}">
                     <div class="card card-body bg-light border-0">
                         ${displaySummary}
                     </div>
                 </div>
 
-                <div class="form-check">
+                <div class="form-check mt-2">
                     <input class="form-check-input" type="checkbox" value="" 
                            id="scrap-${uniqueIdForLogic}" 
                            ${isScrapped ? 'checked' : ''}
@@ -133,31 +149,9 @@ function createArticleCard(item, index) {
 }
 
 /**
- * [추가됨] 요약 내용을 직접 토글하는 함수
- * Bootstrap 객체가 있으면 애니메이션을 사용하고, 없으면 클래스만 조작합니다.
+ * 스크랩 관련 함수들 (기존 유지)
  */
-function toggleSummary(id) {
-    const element = document.getElementById(id);
-    if (!element) return;
-
-    // window.bootstrap이 로드되어 있다면 (일반적인 경우)
-    if (window.bootstrap) {
-        const bsCollapse = bootstrap.Collapse.getOrCreateInstance(element);
-        bsCollapse.toggle();
-    } else {
-        // 만약 Bootstrap JS가 로드되지 않았다면 강제로 클래스 토글 (안전장치)
-        if (element.classList.contains('show')) {
-            element.classList.remove('show');
-        } else {
-            element.classList.add('show');
-        }
-    }
-}
-
-/**
- * 스크랩 토글 및 저장 관련 함수들
- */
-function toggleScrap(checkbox) {
+window.toggleScrap = function(checkbox) {
     const item = checkbox.itemData; 
     const scraps = getScraps();
     const existingIndex = scraps.findIndex(scrap => scrap.uniqueIdForLogic === item.uniqueIdForLogic);
