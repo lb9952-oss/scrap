@@ -86,7 +86,7 @@ function renderScrapList() {
 }
 
 /**
- * 개별 뉴스 기사 카드를 생성합니다.
+ * 개별 뉴스 기사 카드를 생성합니다. (접기/펼치기 기능 추가됨)
  * @param {object} item - 뉴스 기사 데이터
  * @returns {string} - HTML 카드 문자열
  */
@@ -94,67 +94,3 @@ function createArticleCard(item, index) {
     const scraps = getScraps();
     const uniqueIdForLogic = index;
     const isScrapped = scraps.some(scrap => scrap.uniqueIdForLogic === uniqueIdForLogic);
-    
-    const displayUrl = item.링크 || '#';
-    const displayTitle = item.제목 || '제목 없음';
-    const displaySummary = item.본문_요약 || '요약 정보가 없습니다.';
-
-    return `
-        <div class="card">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <a href="${displayUrl}" target="_blank">${displayTitle}</a>
-                </h5>
-                <h6 class="card-subtitle mb-2 text-muted">${item.신문사 || '언론사 정보 없음'}</h6>
-                <p class="card-text">${displaySummary}</p>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" value="" 
-                           id="scrap-${uniqueIdForLogic}" 
-                           ${isScrapped ? 'checked' : ''}
-                           onchange="toggleScrap(this)">
-                    <label class="form-check-label" for="scrap-${uniqueIdForLogic}">
-                        스크랩하기
-                    </label>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * 체크박스 상태에 따라 스크랩 목록을 토글합니다.
- * @param {HTMLElement} checkbox - 클릭된 체크박스 요소
- */
-function toggleScrap(checkbox) {
-    const item = checkbox.itemData; // data-item 속성 대신, 요소의 프로퍼티에서 직접 데이터 객체를 가져옵니다.
-    const scraps = getScraps();
-    // 내용 기반이 아닌, 절대적인 고유 ID로 스크랩 목록에서 항목을 찾습니다.
-    const existingIndex = scraps.findIndex(scrap => scrap.uniqueIdForLogic === item.uniqueIdForLogic);
-
-    if (checkbox.checked && existingIndex === -1) {
-        // 스크랩 추가
-        scraps.push(item);
-    } else if (!checkbox.checked && existingIndex > -1) {
-        // 스크랩 제거
-        scraps.splice(existingIndex, 1);
-    }
-
-    saveScraps(scraps);
-    renderScrapList();
-}
-
-/**
- * localStorage에서 스크랩 목록을 가져옵니다.
- * @returns {Array} - 스크랩된 기사 객체 배열
- */
-function getScraps() {
-    return JSON.parse(localStorage.getItem('scrappedNews') || '[]');
-}
-
-/**
- * 스크랩 목록을 localStorage에 저장합니다.
- * @param {Array} scraps - 저장할 스크랩 객체 배열
- */
-function saveScraps(scraps) {
-    localStorage.setItem('scrappedNews', JSON.stringify(scraps));
-}
