@@ -1,22 +1,5 @@
 // C:\Users\syc217052\Documents\ai_inov\scrap\static\js\main.js
 
-// 1. 전역 함수로 선언하여 HTML 버튼에서 무조건 찾을 수 있게 함 (가장 중요)
-window.toggleSummary = function(index) {
-    const contentId = `summary-content-${index}`;
-    const element = document.getElementById(contentId);
-    
-    // 요소가 없으면 종료
-    if (!element) return;
-
-    // Bootstrap의 'show' 클래스를 직접 토글 (CSS로 제어)
-    // .collapse는 기본적으로 숨김, .collapse.show는 보임 상태입니다.
-    if (element.classList.contains('show')) {
-        element.classList.remove('show');
-    } else {
-        element.classList.add('show');
-    }
-};
-
 // DOM 요소 가져오기
 const newsListContainer = document.getElementById('news-list');
 const scrapListContainer = document.getElementById('scrap-list');
@@ -36,11 +19,14 @@ async function fetchNews() {
     try {
         const response = await fetch('/api/news');
         if (!response.ok) {
+            // 서버가 에러 응답을 보냈을 때, 상세 내용을 표시
             let errorText = `HTTP error! status: ${response.status}`;
             try {
+                // 에러 내용이 JSON 형태일 경우, error 메시지를 추출
                 const errorData = await response.json();
                 errorText = errorData.error || JSON.stringify(errorData);
             } catch (e) {
+                // 에러 내용이 JSON이 아닐 경우(예: HTML 에러 페이지), 텍스트 그대로를 사용
                 errorText = await response.text();
             }
             newsListContainer.innerHTML = `<div class="alert alert-danger"><strong>데이터 로딩 실패:</strong><pre>${errorText}</pre></div>`;
@@ -51,29 +37,30 @@ async function fetchNews() {
         // --- 스크랩 초기화 로직 ---
         if (newsItems.length > 0) {
             const lastNewsId = localStorage.getItem('lastNewsId');
-            const currentNewsId = newsItems[0].링크; 
+            const currentNewsId = newsItems[0].링크; // 첫 번째 기사 링크를 식별자로 사용
 
             if (lastNewsId !== currentNewsId) {
                 console.log('새로운 뉴스 목록이 감지되었습니다. 스크랩 목록을 초기화합니다.');
-                localStorage.removeItem('scrappedNews'); 
-                localStorage.setItem('lastNewsId', currentNewsId); 
-                renderScrapList(); 
+                localStorage.removeItem('scrappedNews'); // 스크랩 목록 초기화
+                localStorage.setItem('lastNewsId', currentNewsId); // 새 뉴스 식별자 저장
+                renderScrapList(); // 화면의 스크랩 목록도 즉시 갱신
             }
         }
         
         // 1. HTML 렌더링
         newsListContainer.innerHTML = newsItems.map((item, index) => createArticleCard(item, index)).join('');
 
-        // 2. 렌더링된 각 요소에 데이터 객체를 직접 첨부
+        // 2. 렌더링된 각 요소에 데이터 객체를 직접 첨부 (문자열 변환 회피)
         newsItems.forEach((item, index) => {
             const checkbox = document.getElementById(`scrap-${index}`);
             if (checkbox) {
                 const itemWithId = {...item, uniqueIdForLogic: index};
-                checkbox.itemData = itemWithId; 
+                checkbox.itemData = itemWithId; // 요소의 프로퍼티로 데이터 객체를 직접 저장
             }
         });
 
     } catch (error) {
+        // 네트워크 오류 등 fetch 자체가 실패했을 때
         console.error('뉴스 로딩 중 오류 발생:', error);
         newsListContainer.innerHTML = `<div class="alert alert-danger"><strong>뉴스를 불러오는 데 실패했습니다:</strong><br>${error.toString()}</div>`;
     }
@@ -100,6 +87,8 @@ function renderScrapList() {
 
 /**
  * 개별 뉴스 기사 카드를 생성합니다.
+ * @param {object} item - 뉴스 기사 데이터
+ * @returns {string} - HTML 카드 문자열
  */
 function createArticleCard(item, index) {
     const scraps = getScraps();
@@ -109,32 +98,16 @@ function createArticleCard(item, index) {
     const displayUrl = item.링크 || '#';
     const displayTitle = item.제목 || '제목 없음';
     const displaySummary = item.본문_요약 || '요약 정보가 없습니다.';
-    
-    // 단순한 ID 생성
-    const contentId = `summary-content-${index}`;
 
     return `
-        <div class="card mb-3">
+        <div class="card">
             <div class="card-body">
                 <h5 class="card-title">
                     <a href="${displayUrl}" target="_blank">${displayTitle}</a>
                 </h5>
                 <h6 class="card-subtitle mb-2 text-muted">${item.신문사 || '언론사 정보 없음'}</h6>
-                
-                <div class="mb-2">
-                    <button class="btn btn-sm btn-outline-secondary" type="button" 
-                            onclick="window.toggleSummary(${index})">
-                        📄 본문 요약 보기
-                    </button>
-                </div>
-
-                <div class="collapse" id="${contentId}">
-                    <div class="card card-body bg-light border-0">
-                        ${displaySummary}
-                    </div>
-                </div>
-
-                <div class="form-check mt-2">
+                <p class="card-text">${displaySummary}</p>
+                <div class="form-check">
                     <input class="form-check-input" type="checkbox" value="" 
                            id="scrap-${uniqueIdForLogic}" 
                            ${isScrapped ? 'checked' : ''}
@@ -149,16 +122,20 @@ function createArticleCard(item, index) {
 }
 
 /**
- * 스크랩 관련 함수들 (기존 유지)
+ * 체크박스 상태에 따라 스크랩 목록을 토글합니다.
+ * @param {HTMLElement} checkbox - 클릭된 체크박스 요소
  */
-window.toggleScrap = function(checkbox) {
-    const item = checkbox.itemData; 
+function toggleScrap(checkbox) {
+    const item = checkbox.itemData; // data-item 속성 대신, 요소의 프로퍼티에서 직접 데이터 객체를 가져옵니다.
     const scraps = getScraps();
+    // 내용 기반이 아닌, 절대적인 고유 ID로 스크랩 목록에서 항목을 찾습니다.
     const existingIndex = scraps.findIndex(scrap => scrap.uniqueIdForLogic === item.uniqueIdForLogic);
 
     if (checkbox.checked && existingIndex === -1) {
+        // 스크랩 추가
         scraps.push(item);
     } else if (!checkbox.checked && existingIndex > -1) {
+        // 스크랩 제거
         scraps.splice(existingIndex, 1);
     }
 
@@ -166,10 +143,18 @@ window.toggleScrap = function(checkbox) {
     renderScrapList();
 }
 
+/**
+ * localStorage에서 스크랩 목록을 가져옵니다.
+ * @returns {Array} - 스크랩된 기사 객체 배열
+ */
 function getScraps() {
     return JSON.parse(localStorage.getItem('scrappedNews') || '[]');
 }
 
+/**
+ * 스크랩 목록을 localStorage에 저장합니다.
+ * @param {Array} scraps - 저장할 스크랩 객체 배열
+ */
 function saveScraps(scraps) {
     localStorage.setItem('scrappedNews', JSON.stringify(scraps));
 }
