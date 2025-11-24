@@ -106,8 +106,11 @@ function createArticleCard(item, index) {
                     <a href="${displayUrl}" target="_blank">${displayTitle}</a>
                 </h5>
                 <h6 class="card-subtitle mb-2 text-muted">${item.신문사 || '언론사 정보 없음'}</h6>
-                <p class="card-text">${displaySummary}</p>
-                <div class="form-check">
+                <details>
+                    <summary>본문 요약 보기</summary>
+                    <p class="card-text">${displaySummary}</p>
+                </details>
+                <div class="form-check mt-3">
                     <input class="form-check-input" type="checkbox" value="" 
                            id="scrap-${uniqueIdForLogic}" 
                            ${isScrapped ? 'checked' : ''}
