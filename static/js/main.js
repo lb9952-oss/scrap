@@ -10,11 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchNews();
     renderScrapList();
     
-    // 30초마다 자동으로 뉴스 업데이트 (로컬 버전 기능 유지)
+    // 30초마다 자동 업데이트 (로컬용 기능)
     setInterval(fetchNews, 30000);
 
-    // [추가] CSV 다운로드 버튼 이벤트 리스너 연결
-    // HTML에 <button id="download-csv-btn">이 있어야 작동합니다.
+    // CSV 다운로드 버튼 이벤트 리스너 연결
     const downloadBtn = document.getElementById('download-csv-btn');
     if (downloadBtn) {
         downloadBtn.addEventListener('click', downloadTrainingData);
@@ -26,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 async function fetchNews() {
     try {
-        // [중요] 로컬 서버용 API 주소 유지
+        // [로컬용 주소]
         const response = await fetch('/api/news');
         
         if (!response.ok) {
@@ -42,7 +41,7 @@ async function fetchNews() {
         }
         
         const newsItems = await response.json();
-        currentNewsData = newsItems; // [중요] CSV 생성을 위해 데이터 전역 변수에 저장
+        currentNewsData = newsItems; // CSV 생성을 위해 데이터 저장
 
         // --- 스크랩 초기화 로직 ---
         if (newsItems.length > 0) {
@@ -57,7 +56,7 @@ async function fetchNews() {
             }
         }
         
-        // 1. HTML 렌더링 (접기/펼치기 기능 포함된 함수 호출)
+        // 1. HTML 렌더링
         newsListContainer.innerHTML = newsItems.map((item, index) => createArticleCard(item, index)).join('');
 
         // 2. 데이터 객체 첨부
@@ -76,7 +75,7 @@ async function fetchNews() {
 }
 
 /**
- * [기능 2] 본문 접기/펼치기 기능이 적용된 카드 생성
+ * [수정됨] 본문 접기/펼치기 + '스크랩하기' 라벨 적용
  */
 function createArticleCard(item, index) {
     const scraps = getScraps();
@@ -85,7 +84,6 @@ function createArticleCard(item, index) {
     
     const displayUrl = item.링크 || '#';
     const displayTitle = item.제목 || '제목 없음';
-    // 본문 내용이 없으면 요약이라도 보여줌
     const displayBody = item.본문 || item.본문_요약 || '내용이 없습니다.'; 
 
     return `
@@ -115,7 +113,7 @@ function createArticleCard(item, index) {
                                ${isScrapped ? 'checked' : ''}
                                onchange="toggleScrap(this)" style="cursor: pointer;">
                         <label class="form-check-label fw-bold" for="scrap-${uniqueIdForLogic}" style="cursor: pointer;">
-                            학습 데이터로 선택
+                            스크랩하기
                         </label>
                     </div>
                 </div>
@@ -124,9 +122,6 @@ function createArticleCard(item, index) {
     `;
 }
 
-/**
- * [기능 2] 본문 접기/펼치기 토글 함수
- */
 function toggleContent(index) {
     const contentArea = document.getElementById(`content-area-${index}`);
     const btn = document.getElementById(`btn-toggle-${index}`);
@@ -142,37 +137,27 @@ function toggleContent(index) {
     }
 }
 
-/**
- * [기능 1] 현재 뉴스 목록을 학습용 CSV 파일로 다운로드
- */
 function downloadTrainingData() {
     if (currentNewsData.length === 0) {
         alert("다운로드할 뉴스 데이터가 없습니다.");
         return;
     }
     
-    // CSV 헤더 (파이썬 코드와 일치)
     let csvContent = "크롤링된_제목,크롤링된_본문,최종선택여부\n";
 
     currentNewsData.forEach((item, index) => {
-        // 체크박스 상태 확인
         const checkbox = document.getElementById(`scrap-${index}`);
         const isSelected = checkbox && checkbox.checked ? 1 : 0;
 
-        // CSV 포맷에 맞게 데이터 정제 (따옴표, 줄바꿈 처리)
-        // 본문이 없으면 본문_요약 사용
         const title = (item.제목 || "").replace(/"/g, '""'); 
         const body = (item.본문 || item.본문_요약 || "").replace(/"/g, '""');
 
-        // CSV 행 추가
         csvContent += `"${title}","${body}",${isSelected}\n`;
     });
 
-    // BOM 추가 (엑셀에서 한글 깨짐 방지)
     const bom = "\uFEFF";
     const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
     
-    // 다운로드 링크 생성 및 클릭
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
     link.setAttribute("href", url);
@@ -182,8 +167,6 @@ function downloadTrainingData() {
     link.click();
     document.body.removeChild(link);
 }
-
-// --- 기존 로직 유지 ---
 
 function toggleScrap(checkbox) {
     const item = checkbox.itemData; 
