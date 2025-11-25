@@ -75,7 +75,7 @@ async function fetchNews() {
 }
 
 /**
- * [수정됨] 본문 접기/펼치기 + '스크랩하기' 라벨 적용
+ * [수정됨] 기사 번호 추가 + 본문 접기/펼치기 + '스크랩하기' 라벨 적용
  */
 function createArticleCard(item, index) {
     const scraps = getScraps();
@@ -85,24 +85,28 @@ function createArticleCard(item, index) {
     const displayUrl = item.링크 || '#';
     const displayTitle = item.제목 || '제목 없음';
     const displayBody = item.본문 || item.본문_요약 || '내용이 없습니다.'; 
+    
+    // [추가됨] 기사 번호
+    const articleNumber = index + 1;
 
     return `
         <div class="card mb-3">
             <div class="card-body">
-                <h5 class="card-title">
+                <h5 class="card-title d-flex align-items-start">
+                    <span class="text-primary me-2 fw-bold" style="min-width: 25px;">${articleNumber}.</span>
                     <a href="${displayUrl}" target="_blank" class="text-decoration-none text-dark">${displayTitle}</a>
                 </h5>
-                <h6 class="card-subtitle mb-3 text-muted" style="font-size: 0.9em;">
+                <h6 class="card-subtitle mb-3 text-muted ms-4" style="font-size: 0.9em;">
                     ${item.신문사 || '언론사 정보 없음'}
                 </h6>
 
-                <div id="content-area-${index}" class="mb-3" style="display: none;">
+                <div id="content-area-${index}" class="mb-3 ms-4" style="display: none;">
                     <p class="card-text text-secondary" style="font-size: 0.95rem; line-height: 1.6;">
                         ${displayBody}
                     </p>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-center ms-4">
                     <button class="btn btn-sm btn-outline-primary" onclick="toggleContent(${index})" id="btn-toggle-${index}">
                         본문 보기 ▼
                     </button>
