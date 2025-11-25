@@ -1,4 +1,5 @@
-// C:\Users\syc217052\Documents\ai_inov\scrap\static\js\main.js
+// 전역 변수로 현재 로드된 뉴스 데이터를 저장 (CSV 다운로드용)
+let currentNewsData = [];
 
 // DOM 요소 가져오기
 const newsListContainer = document.getElementById('news-list');
@@ -8,8 +9,12 @@ const scrapListContainer = document.getElementById('scrap-list');
 document.addEventListener('DOMContentLoaded', () => {
     fetchNews();
     renderScrapList();
-    // 30초마다 자동으로 뉴스 업데이트
-    /* 자동 새로고침 비활성화 */
+    
+    // [추가] CSV 다운로드 버튼 이벤트 리스너 연결 (HTML에 버튼이 있다고 가정)
+    const downloadBtn = document.getElementById('download-csv-btn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', downloadTrainingData);
+    }
 });
 
 /**
@@ -17,78 +22,57 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 async function fetchNews() {
     try {
-        const response = await fetch('news_data.json');
+        // github pages용 주소 (로컬 테스트시 main.js에서는 '/api/news' 사용)
+        const response = await fetch('news_data.json'); 
+        
         if (!response.ok) {
-            // 서버가 에러 응답을 보냈을 때, 상세 내용을 표시
             let errorText = `HTTP error! status: ${response.status}`;
             try {
-                // 에러 내용이 JSON 형태일 경우, error 메시지를 추출
                 const errorData = await response.json();
                 errorText = errorData.error || JSON.stringify(errorData);
             } catch (e) {
-                // 에러 내용이 JSON이 아닐 경우(예: HTML 에러 페이지), 텍스트 그대로를 사용
                 errorText = await response.text();
             }
             newsListContainer.innerHTML = `<div class="alert alert-danger"><strong>데이터 로딩 실패:</strong><pre>${errorText}</pre></div>`;
             return;
         }
+        
         const newsItems = await response.json();
+        currentNewsData = newsItems; // [중요] CSV 생성을 위해 데이터 전역 변수에 저장
 
         // --- 스크랩 초기화 로직 ---
         if (newsItems.length > 0) {
             const lastNewsId = localStorage.getItem('lastNewsId');
-            const currentNewsId = newsItems[0].링크; // 첫 번째 기사 링크를 식별자로 사용
+            const currentNewsId = newsItems[0].링크; 
 
             if (lastNewsId !== currentNewsId) {
                 console.log('새로운 뉴스 목록이 감지되었습니다. 스크랩 목록을 초기화합니다.');
-                localStorage.removeItem('scrappedNews'); // 스크랩 목록 초기화
-                localStorage.setItem('lastNewsId', currentNewsId); // 새 뉴스 식별자 저장
-                renderScrapList(); // 화면의 스크랩 목록도 즉시 갱신
+                localStorage.removeItem('scrappedNews'); 
+                localStorage.setItem('lastNewsId', currentNewsId); 
+                renderScrapList(); 
             }
         }
         
         // 1. HTML 렌더링
         newsListContainer.innerHTML = newsItems.map((item, index) => createArticleCard(item, index)).join('');
 
-        // 2. 렌더링된 각 요소에 데이터 객체를 직접 첨부 (문자열 변환 회피)
+        // 2. 데이터 객체 첨부
         newsItems.forEach((item, index) => {
             const checkbox = document.getElementById(`scrap-${index}`);
             if (checkbox) {
                 const itemWithId = {...item, uniqueIdForLogic: index};
-                checkbox.itemData = itemWithId; // 요소의 프로퍼티로 데이터 객체를 직접 저장
+                checkbox.itemData = itemWithId; 
             }
         });
 
     } catch (error) {
-        // 네트워크 오류 등 fetch 자체가 실패했을 때
         console.error('뉴스 로딩 중 오류 발생:', error);
         newsListContainer.innerHTML = `<div class="alert alert-danger"><strong>뉴스를 불러오는 데 실패했습니다:</strong><br>${error.toString()}</div>`;
     }
 }
 
 /**
- * localStorage에 저장된 스크랩 목록을 화면에 렌더링합니다.
- */
-function renderScrapList() {
-    const scraps = getScraps();
-    if (scraps.length === 0) {
-        scrapListContainer.innerHTML = '<p class="text-muted">스크랩한 기사가 없습니다.</p>';
-        return;
-    }
-    const scrapHTML = scraps.map(scrap => {
-        const displayUrl = scrap.링크 || '#';
-        const displayTitle = scrap.제목 || '제목 없음';
-        return `<div class="list-group-item list-group-item-action">
-            <a href="${displayUrl}" target="_blank" class="text-decoration-none">${displayTitle}</a>
-         </div>`;
-    }).join('');
-    scrapListContainer.innerHTML = `<div class="list-group">${scrapHTML}</div>`;
-}
-
-/**
- * 개별 뉴스 기사 카드를 생성합니다.
- * @param {object} item - 뉴스 기사 데이터
- * @returns {string} - HTML 카드 문자열
+ * [기능 2] 본문 접기/펼치기 기능이 적용된 카드 생성
  */
 function createArticleCard(item, index) {
     const scraps = getScraps();
@@ -97,24 +81,39 @@ function createArticleCard(item, index) {
     
     const displayUrl = item.링크 || '#';
     const displayTitle = item.제목 || '제목 없음';
-    const displaySummary = item.본문_요약 || '요약 정보가 없습니다.';
+    // 본문 내용이 없으면 요약이라도 보여줌
+    const displayBody = item.본문 || item.본문_요약 || '내용이 없습니다.'; 
 
     return `
-        <div class="card">
+        <div class="card mb-3">
             <div class="card-body">
                 <h5 class="card-title">
-                    <a href="${displayUrl}" target="_blank">${displayTitle}</a>
+                    <a href="${displayUrl}" target="_blank" class="text-decoration-none text-dark">${displayTitle}</a>
                 </h5>
-                <h6 class="card-subtitle mb-2 text-muted">${item.신문사 || '언론사 정보 없음'}</h6>
-                <p class="card-text">${displaySummary}</p>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" value="" 
-                           id="scrap-${uniqueIdForLogic}" 
-                           ${isScrapped ? 'checked' : ''}
-                           onchange="toggleScrap(this)">
-                    <label class="form-check-label" for="scrap-${uniqueIdForLogic}">
-                        스크랩하기
-                    </label>
+                <h6 class="card-subtitle mb-3 text-muted" style="font-size: 0.9em;">
+                    ${item.신문사 || '언론사 정보 없음'}
+                </h6>
+
+                <div id="content-area-${index}" class="mb-3" style="display: none;">
+                    <p class="card-text text-secondary" style="font-size: 0.95rem; line-height: 1.6;">
+                        ${displayBody}
+                    </p>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <button class="btn btn-sm btn-outline-primary" onclick="toggleContent(${index})" id="btn-toggle-${index}">
+                        본문 보기 ▼
+                    </button>
+
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" role="switch"
+                               id="scrap-${uniqueIdForLogic}" 
+                               ${isScrapped ? 'checked' : ''}
+                               onchange="toggleScrap(this)" style="cursor: pointer;">
+                        <label class="form-check-label fw-bold" for="scrap-${uniqueIdForLogic}" style="cursor: pointer;">
+                            학습 데이터로 선택
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -122,20 +121,77 @@ function createArticleCard(item, index) {
 }
 
 /**
- * 체크박스 상태에 따라 스크랩 목록을 토글합니다.
- * @param {HTMLElement} checkbox - 클릭된 체크박스 요소
+ * [기능 2] 본문 접기/펼치기 토글 함수
  */
+function toggleContent(index) {
+    const contentArea = document.getElementById(`content-area-${index}`);
+    const btn = document.getElementById(`btn-toggle-${index}`);
+    
+    if (contentArea.style.display === 'none') {
+        contentArea.style.display = 'block';
+        btn.innerText = '본문 접기 ▲';
+        btn.classList.replace('btn-outline-primary', 'btn-outline-secondary');
+    } else {
+        contentArea.style.display = 'none';
+        btn.innerText = '본문 보기 ▼';
+        btn.classList.replace('btn-outline-secondary', 'btn-outline-primary');
+    }
+}
+
+/**
+ * [기능 1] 현재 뉴스 목록을 학습용 CSV 파일로 다운로드
+ */
+function downloadTrainingData() {
+    if (currentNewsData.length === 0) {
+        alert("다운로드할 뉴스 데이터가 없습니다.");
+        return;
+    }
+
+    // 현재 스크랩(선택)된 항목들의 ID(uniqueIdForLogic 기준이 아닌 링크 기준 매칭 권장) 리스트 가져오기
+    // 하지만 여기선 화면 순서(index)와 currentNewsData 순서가 같으므로 index로 체크박스 상태 확인
+    
+    // CSV 헤더 (파이썬 코드와 일치)
+    let csvContent = "크롤링된_제목,크롤링된_본문,최종선택여부\n";
+
+    currentNewsData.forEach((item, index) => {
+        // 체크박스 상태 확인
+        const checkbox = document.getElementById(`scrap-${index}`);
+        const isSelected = checkbox && checkbox.checked ? 1 : 0;
+
+        // CSV 포맷에 맞게 데이터 정제 (따옴표, 줄바꿈 처리)
+        // 본문이 없으면 본문_요약 사용
+        const title = (item.제목 || "").replace(/"/g, '""'); 
+        const body = (item.본문 || item.본문_요약 || "").replace(/"/g, '""');
+
+        // CSV 행 추가 (Excel 호환을 위해 값들을 따옴표로 감쌈)
+        csvContent += `"${title}","${body}",${isSelected}\n`;
+    });
+
+    // BOM 추가 (엑셀에서 한글 깨짐 방지)
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+    
+    // 다운로드 링크 생성 및 클릭
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", "labeled_for_training.csv");
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// --- 기존 로직 유지 ---
+
 function toggleScrap(checkbox) {
-    const item = checkbox.itemData; // data-item 속성 대신, 요소의 프로퍼티에서 직접 데이터 객체를 가져옵니다.
+    const item = checkbox.itemData; 
     const scraps = getScraps();
-    // 내용 기반이 아닌, 절대적인 고유 ID로 스크랩 목록에서 항목을 찾습니다.
     const existingIndex = scraps.findIndex(scrap => scrap.uniqueIdForLogic === item.uniqueIdForLogic);
 
     if (checkbox.checked && existingIndex === -1) {
-        // 스크랩 추가
         scraps.push(item);
     } else if (!checkbox.checked && existingIndex > -1) {
-        // 스크랩 제거
         scraps.splice(existingIndex, 1);
     }
 
@@ -143,18 +199,26 @@ function toggleScrap(checkbox) {
     renderScrapList();
 }
 
-/**
- * localStorage에서 스크랩 목록을 가져옵니다.
- * @returns {Array} - 스크랩된 기사 객체 배열
- */
+function renderScrapList() {
+    const scraps = getScraps();
+    if (scraps.length === 0) {
+        scrapListContainer.innerHTML = '<p class="text-muted p-2">선택한 기사가 없습니다.</p>';
+        return;
+    }
+    const scrapHTML = scraps.map(scrap => {
+        const displayUrl = scrap.링크 || '#';
+        const displayTitle = scrap.제목 || '제목 없음';
+        return `<div class="list-group-item list-group-item-action py-2">
+            <a href="${displayUrl}" target="_blank" class="text-decoration-none small text-truncate d-block">${displayTitle}</a>
+         </div>`;
+    }).join('');
+    scrapListContainer.innerHTML = `<div class="list-group list-group-flush">${scrapHTML}</div>`;
+}
+
 function getScraps() {
     return JSON.parse(localStorage.getItem('scrappedNews') || '[]');
 }
 
-/**
- * 스크랩 목록을 localStorage에 저장합니다.
- * @param {Array} scraps - 저장할 스크랩 객체 배열
- */
 function saveScraps(scraps) {
     localStorage.setItem('scrappedNews', JSON.stringify(scraps));
 }
