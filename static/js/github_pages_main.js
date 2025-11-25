@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchNews();
     renderScrapList();
     
+    // 30초마다 자동 업데이트 (로컬용 기능)
+    /* 자동 새로고침 비활성화 */
+
     // CSV 다운로드 버튼 이벤트 리스너 연결
     const downloadBtn = document.getElementById('download-csv-btn');
     if (downloadBtn) {
@@ -22,8 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
  */
 async function fetchNews() {
     try {
-        // github pages용 주소
-        const response = await fetch('news_data.json'); 
+        // [로컬용 주소]
+        const response = await fetch('news_data.json');
         
         if (!response.ok) {
             let errorText = `HTTP error! status: ${response.status}`;
@@ -83,7 +86,7 @@ function createArticleCard(item, index) {
     const displayTitle = item.제목 || '제목 없음';
     const displayBody = item.본문 || item.본문_요약 || '내용이 없습니다.'; 
     
-    // [추가됨] 기사 번호 (index는 0부터 시작하므로 1을 더해줌)
+    // [추가됨] 기사 번호
     const articleNumber = index + 1;
 
     return `
